@@ -1,0 +1,90 @@
+
+library("edgeR")
+
+exprSet_all<-read.csv("txts_Gr2-Gr3.csv",sep=",",header=TRUE,row.names = 1)   #读取矩阵文件，这是输入的数据路径，改成自己的文件名#
+
+rt=as.matrix(exprSet_all) #转化为矩阵#
+
+rownames(rt)=rt[,1] #第一列作为行名#
+
+exp=rt[,2:ncol(rt)] #第二列到最后一列是表达的数据#
+
+head(exp)
+dimnames=list(rownames(exp),colnames(exp))
+
+data=matrix(as.numeric(as.matrix(exp)),nrow=nrow(exp),dimnames=dimnames)#15,16行意思是将带引号的数据转换成数值#
+
+data=avereps(data) #有的基因出现过多行，把出现多行的gene取平均值#
+
+data=data[rowMeans(data)>1,] #去除低表达的数据#
+
+
+
+group=c(rep("cul",4),rep("GFAP",4)) #定义比较组，按照癌症和正常样品数目修改#
+
+design <- model.matrix(~group) #把group设置成一个model matrix#
+
+y <- DGEList(counts=data,group=group) #group哪些是正常，哪些是癌症样本，让edgeR可以识别#
+
+y <- calcNormFactors(y) #对因子矫正#
+
+y <- estimateCommonDisp(y)#25,26估计变异系数，即估计方差；估计内部差异程度，看组间差异是否比内部差异大，如果大，可选为差异基因#
+
+y <- estimateTagwiseDisp(y)
+
+et <- exactTest(y,pair = c("cul","GFAP"))
+
+topTags(et)
+
+ordered_tags <- topTags(et, n=100000) #显示排名前十万的#
+
+
+allDiff=ordered_tags$table
+
+allDiff=allDiff[is.na(allDiff$FDR)==FALSE,]
+
+diff=allDiff
+
+head(diff)
+
+#volcano
+
+res <- diff
+
+#第一行要处理下
+res=cbind(Gene_name=row.names(res), res)
+row.names(res)=NULL
+
+
+head(res)
+# Make a basic volcano plot
+with(res, plot(logFC, 
+               -log10(PValue), 
+               pch=20, 
+               main="Volcano plot", 
+               xlim=c(-2.5,2)))
+# Add colored points: red if padj<0.05, orange of log2FC>1, green if both)
+with(subset(res, FDR<.1 ), 
+     points(logFC, 
+            -log10(PValue), 
+            pch=20, col="red"))
+
+with(subset(res, abs(logFC)>0.5), 
+     points(logFC, -log10(PValue), 
+            pch=20, 
+            col="orange"))
+
+with(subset(res, FDR<.1 & abs(logFC)>0.5), 
+     points(logFC, 
+            -log10(PValue), 
+            pch=20, 
+            col="green"))
+
+library(calibrate)
+with(subset(res, FDR<.1 & abs(logFC)>0.5), 
+     textxy(logFC, -log10(PValue), 
+            labs=Gene_name, cex=.8))
+
+with(subset(res, Gene_name=="Eukaryotic translation initiation factor 4 gamma 1"), 
+     textxy(logFC, -log10(PValue), 
+            labs=Gene_name, cex=.8))
