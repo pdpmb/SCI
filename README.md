@@ -1,3 +1,2 @@
 # SCI
-ALL
-This programe included Python R and MongaoDb Code for Sci.
+This program included Python R and MongaoDb Code for Sci.
